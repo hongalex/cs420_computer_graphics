@@ -10,6 +10,7 @@
 #include <sstream>
 #include <String>
 #include <vector>
+#include <cmath>
 
 #include "openGLHeader.h"
 #include "glutHeader.h"
@@ -35,6 +36,19 @@
 #endif
 
 using namespace std;
+
+struct Vector3 {
+  float x;
+  float y;
+  float z;
+};
+
+struct Vector4 {
+  float r;
+  float g;
+  float b;
+  float a;
+};
 
 // represents one control point along the spline 
 struct Point 
@@ -96,8 +110,14 @@ GLuint cubeProgram;
 int imageHeight;
 int imageWidth;
 
-float* positions;
-float* colors;
+Vector3* positions;
+Vector4* colors;
+
+//Unit vectors at each point
+Vector3* tangents;
+Vector3* normals;
+Vector3* binormals;
+
 
 int numberOfVertices;
 int positionSize, colorSize;
@@ -114,9 +134,9 @@ int screenshotNum = 1;
 vector<float> cube_pos;
 vector<float> cube_uvs;
 
+//Min and max height of the skybox + ground texture
 float maxHeight = 100.0f;
 float minHeight = -1.0f;
-
 
 
 //Utility functions 
@@ -132,6 +152,27 @@ float cube(float x) {
 
 float square(float x) {
 	return x*x;
+}
+
+//Takes two vectors, crosses them, and returns the result
+Vector3* crossProduct(Vector3 first, Vector3 second) {
+  Vector3* result = new Vector3();
+  result->x = first.y * second.z - first.z * second.y;
+  result->y = first.z * second.x - first.x * second.z;
+  result->z = first.x * second.y - first.y * second.x;
+  return result;
+}
+
+//Returns the unit vector of any given vector
+Vector3* normalize(Vector3* vec) {
+  Vector3* result = new Vector3();
+  float length = sqrt(square(vec->x)+square(vec->y)+square(vec->z));
+
+  result->x = vec->x/length;
+  result->y = vec->y/length;
+  result->z = vec->z/length;
+  return result;
+
 }
 //End Utility Functions
 
@@ -299,6 +340,9 @@ void displayFunc()
   matrix->SetMatrixMode(OpenGLMatrix::ModelView);
   matrix->LoadIdentity();
   matrix->LookAt(0, 0, 0, 1, 0, 0, 0, 0, 1); // default camera
+
+
+
   //matrix->LookAt(0,100,200,0,0,0,0,1,0);
   //matrix->Translate(-128,0,120);
 
@@ -361,15 +405,12 @@ void displayFunc()
 
   glDrawArrays(GL_TRIANGLES,0,6);
 
-
   //Draw the sky textures around the cube
 
   glBindTexture(GL_TEXTURE_2D,skyTexHandle);
   glDrawArrays(GL_TRIANGLES,6,30);
 
-
   glBindVertexArray(0);
-
 
   //swap frame buffers
   glutSwapBuffers();
@@ -603,14 +644,18 @@ void fillSplineData(float u, float s) {
 		}
 	}
 
-	positions = new float[numberOfVertices*3];
-	colors = new float[numberOfVertices*4];
+
+	positions = new Vector3[numberOfVertices];
+	colors = new Vector4[numberOfVertices];
 	positionSize = numberOfVertices*3*sizeof(float); 
 	colorSize = numberOfVertices*4*sizeof(float);
 
+  tangents = new Vector3[numberOfVertices];
+  binormals = new Vector3[numberOfVertices];
+
 
 	int index = 0;
-	//fill positions array
+	//fill positions array and also calculate for tangents and normals
 	for(int i=0; i < numSplines; i++) {
 		for(int j=0; j < (splines[i].numControlPoints)-3; j++) {
 			for(float k=0.0; k<=1.0; k+=u) {
@@ -640,24 +685,49 @@ void fillSplineData(float u, float s) {
 				float z2 = splines[i].points[j+2].z;
 				float z3 = splines[i].points[j+3].z;
 
-				positions[index] = t0*x0 + t1*x1 + t2*x2 + t3*x3;
-				index++; 
-				positions[index] = t0*y0 + t1*y1 + t2*y2 + t3*y3;
-				index++;
-				positions[index] = t0*z0 + t1*z1 + t2*z2 + t3*z3;
-				index++;
+
+        positions[index] = Vector3(); 
+        positions[index].x = t0*x0 + t1*x1 + t2*x2 + t3*x3;
+        positions[index].y = t0*y0 + t1*y1 + t2*y2 + t3*y3;
+        positions[index].z = t0*z0 + t1*z1 + t2*z2 + t3*z3;
+
+        //temp0 to temp 3 represent temporary values from multiplying [3u^2 2u 1 0][M] derivative of u and the basis matrix
+        u3 = 3 * u2;
+        u2 = 2 * k;
+
+        float temp0 = u3*-1*s + u2*2*s - s;
+        float temp1 = u3*(2-s) + u2*(s-3);
+        float temp2 = u3*(s-2) + u2*(3-2*s) + s;
+        float temp3 = u3*s - u2*s;
+
+        tangents[index] = Vector3(); 
+        float tangentX = temp0*x0 + temp1*x1 + temp2*x2 + temp3*x3;
+        float tangentY = temp0*y0 + temp1*y1 + temp2*y2 + temp3*y3;
+        float tangentZ = temp0*z0 + temp1*z1 + temp2*z2 + temp3*z3;
+
+        float length = sqrt(square(tangentX)+square(tangentY)+square(tangentZ));
+        tangents[index].x = tangentX/length;
+        tangents[index].y = tangentY/length;
+        tangents[index].z = tangentZ/length;
+
+        index++;
 			}
 		}
 	}
 
-	for(int i=0; i<numberOfVertices*4; i+=4) {
-		colors[i] = 1.0f;
-    colors[i+1] = 0.0f;
-    colors[i+2] = 0.0f;
-    colors[i+3] = 1.0f;
-
-
+  //fill in the color values
+	for(int i=0; i<numberOfVertices; i++) {
+		colors[i] = Vector4();
+    colors[i].r = 0.0f;
+    colors[i].g = 0.0f;
+    colors[i].b = 0.0f;
+    colors[i].a = 0.0f;
 	}
+
+  //calculate the normal vector
+  Vector3 arb = Vector3();
+  arb.x = 0.0f; arb.y = 0.0f; arb.z = 1.0f;
+
 
 }
 
