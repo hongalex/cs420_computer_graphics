@@ -138,6 +138,8 @@ vector<float> cube_uvs;
 float maxHeight = 100.0f;
 float minHeight = -1.0f;
 
+int currentPosition = 0;
+
 
 //Utility functions 
 string StringToInt(int i) {
@@ -339,8 +341,24 @@ void displayFunc()
 
   matrix->SetMatrixMode(OpenGLMatrix::ModelView);
   matrix->LoadIdentity();
-  matrix->LookAt(0, 0, 0, 1, 0, 0, 0, 0, 1); // default camera
 
+  //matrix->LookAt(0, 0, 0, 1, 0, 0, 0, 0, 1); // default camera
+  float ex = positions[currentPosition].x;
+  float ey = positions[currentPosition].y;
+  float ez = positions[currentPosition].z;
+
+  float fx = ex+ tangents[currentPosition].x;
+  float fy = ey+ tangents[currentPosition].y;
+  float fz = ez+tangents[currentPosition].z;
+
+  float ux = abs(binormals[currentPosition].x)/10;
+  float uy = abs(binormals[currentPosition].y)/10;
+  float uz = 1.0;//abs(binormals[currentPosition].z)/100;
+  // cout << "Ux: " << ux << endl;
+  // cout << "Uy: " << uy << endl;
+  // cout << "Uz: " << uz << endl;
+
+  matrix->LookAt(ex, ey, ez, fx, fy, fz, ux, uy, uz);
 
 
   //matrix->LookAt(0,100,200,0,0,0,0,1,0);
@@ -455,7 +473,7 @@ void mouseMotionDragFunc(int x, int y)
         landTranslate[0] += mousePosDelta[0] * 0.01f;
         landTranslate[1] -= mousePosDelta[1] * 0.01f;
       }
-      if (middleMouseButton)
+      if (rightMouseButton)
       {
         // control z translation via the middle mouse button
         landTranslate[2] += mousePosDelta[1] * 0.01f;
@@ -470,7 +488,7 @@ void mouseMotionDragFunc(int x, int y)
         landRotate[1] -= mousePosDelta[1];
         landRotate[2] += mousePosDelta[0];
       }
-      if (middleMouseButton)
+      if (rightMouseButton)
       {
         // control z rotation via the middle mouse button
         landRotate[0] += mousePosDelta[1];
@@ -485,7 +503,7 @@ void mouseMotionDragFunc(int x, int y)
         landScale[0] *= 1.0f + mousePosDelta[0] * 0.01f;
         landScale[1] *= 1.0f - mousePosDelta[1] * 0.01f;
       }
-      if (middleMouseButton)
+      if (rightMouseButton)
       {
         // control z scaling via the middle mouse button
         landScale[2] *= 1.0f - mousePosDelta[1] * 0.01f;
@@ -611,6 +629,18 @@ void keyboardFunc(unsigned char key, int x, int y)
       factor/=2;
       break;
 
+    case 'p':
+      if(currentPosition+numberOfVertices/500 <= numberOfVertices) {
+        currentPosition+=numberOfVertices/500;
+      }
+      break;
+
+    case 'o':
+      if(currentPosition-numberOfVertices/500 > 0) {
+        currentPosition-=numberOfVertices/500;
+      }      
+      break;
+
     case 'c':
       // take a screenshot
       string filename = "screenshots/";
@@ -644,13 +674,13 @@ void fillSplineData(float u, float s) {
 		}
 	}
 
-
 	positions = new Vector3[numberOfVertices];
 	colors = new Vector4[numberOfVertices];
 	positionSize = numberOfVertices*3*sizeof(float); 
 	colorSize = numberOfVertices*4*sizeof(float);
 
   tangents = new Vector3[numberOfVertices];
+  normals = new Vector3[numberOfVertices];
   binormals = new Vector3[numberOfVertices];
 
 
@@ -701,14 +731,10 @@ void fillSplineData(float u, float s) {
         float temp3 = u3*s - u2*s;
 
         tangents[index] = Vector3(); 
-        float tangentX = temp0*x0 + temp1*x1 + temp2*x2 + temp3*x3;
-        float tangentY = temp0*y0 + temp1*y1 + temp2*y2 + temp3*y3;
-        float tangentZ = temp0*z0 + temp1*z1 + temp2*z2 + temp3*z3;
-
-        float length = sqrt(square(tangentX)+square(tangentY)+square(tangentZ));
-        tangents[index].x = tangentX/length;
-        tangents[index].y = tangentY/length;
-        tangents[index].z = tangentZ/length;
+        tangents[index].x = temp0*x0 + temp1*x1 + temp2*x2 + temp3*x3;
+        tangents[index].y = temp0*y0 + temp1*y1 + temp2*y2 + temp3*y3;
+        tangents[index].z = temp0*z0 + temp1*z1 + temp2*z2 + temp3*z3;
+        tangents[index] = (*normalize(&tangents[index]));
 
         index++;
 			}
@@ -724,9 +750,16 @@ void fillSplineData(float u, float s) {
     colors[i].a = 0.0f;
 	}
 
-  //calculate the normal vector
+  //calculate the normal and binormal vectors
   Vector3 arb = Vector3();
   arb.x = 0.0f; arb.y = 0.0f; arb.z = 1.0f;
+  normals[0] = *(normalize(crossProduct(tangents[0],arb)));
+  binormals[0] = *(normalize(crossProduct(tangents[0],normals[0])));
+  for(int i=1; i < numberOfVertices; i++) {
+    normals[i] = *(normalize(crossProduct(binormals[i-1],tangents[i])));
+    binormals[i] = *(normalize(crossProduct(tangents[i],normals[i])));
+
+  }
 
 
 }
@@ -986,6 +1019,13 @@ void initScene(int argc, char *argv[])
 
   //call with u = 0.001 and s = 0.5 
   fillSplineData(0.001, 0.5);
+  /*for(int i= 0; i< numberOfVertices; i++) {
+    cout << "Points" << endl;
+    cout << positions[i].x << "," << positions[i].y << "," << positions[i].z << endl;
+
+    cout << "Tangent" << endl;
+    cout << tangents[i].x << "," << tangents[i].y << "," << tangents[i].z << endl;
+  }*/
 
 
   initVBO();
