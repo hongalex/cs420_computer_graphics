@@ -66,9 +66,9 @@ typedef enum { ROTATE, TRANSLATE, SCALE } CONTROL_STATE;
 CONTROL_STATE controlState = ROTATE;
 
 // state of the world
-float landRotate[3] = { -70.0f, 0.0f, 20.0f };
-float landTranslate[3] = { -50.0f, -20.0f, -50.0f };
-float landScale[3] = { 4.0f, 4.0f, 4.0f };
+float landRotate[3] = { 0.0f, 0.0f, 0.0f };
+float landTranslate[3] = { 0.0f, 0.0f, 0.0f };
+float landScale[3] = { 1.0f, 1.0f, 1.0f };
 
 int windowWidth = 1280;
 int windowHeight = 720;
@@ -104,6 +104,7 @@ GLfloat delta = 2.0;
 GLint axis = 2;
 
 bool stop = false;
+float factor = 1.0f;
 
 int screenshotNum = 1;
 
@@ -187,42 +188,42 @@ static const GLfloat g_vertex_buffer_data[] = {
 };*/
 
  static const GLfloat g_color_buffer_data[] = {
-      0.583f,  0.771f,  0.014f,
-      0.609f,  0.115f,  0.436f,
-      0.327f,  0.483f,  0.844f,
-      0.822f,  0.569f,  0.201f,
-      0.435f,  0.602f,  0.223f,
-      0.310f,  0.747f,  0.185f,
-      0.597f,  0.770f,  0.761f,
-     0.559f,  0.436f,  0.730f,
-     0.359f,  0.583f,  0.152f,
-     0.483f,  0.596f,  0.789f,
-     0.559f,  0.861f,  0.639f,
-     0.195f,  0.548f,  0.859f,
-     0.014f,  0.184f,  0.576f,
-     0.771f,  0.328f,  0.970f,
-     0.406f,  0.615f,  0.116f,
-     0.676f,  0.977f,  0.133f,
-     0.971f,  0.572f,  0.833f,
-     0.140f,  0.616f,  0.489f,
-     0.997f,  0.513f,  0.064f,
-     0.945f,  0.719f,  0.592f,
-     0.543f,  0.021f,  0.978f,
-     0.279f,  0.317f,  0.505f,
-     0.167f,  0.620f,  0.077f,
-     0.347f,  0.857f,  0.137f,
-     0.055f,  0.953f,  0.042f,
-     0.714f,  0.505f,  0.345f,
-     0.783f,  0.290f,  0.734f,
-     0.722f,  0.645f,  0.174f,
-     0.302f,  0.455f,  0.848f,
-     0.225f,  0.587f,  0.040f,
-     0.517f,  0.713f,  0.338f,
-     0.053f,  0.959f,  0.120f,
-     0.393f,  0.621f,  0.362f,
-     0.673f,  0.211f,  0.457f,
-     0.820f,  0.883f,  0.371f,
-     0.982f,  0.099f,  0.879f
+      0.583f,  0.771f,  0.014f, 1.0f,
+      0.609f,  0.115f,  0.436f, 1.0f,
+      0.327f,  0.483f,  0.844f, 1.0f,
+      0.822f,  0.569f,  0.201f, 1.0f,
+      0.435f,  0.602f,  0.223f, 1.0f,
+      0.310f,  0.747f,  0.185f, 1.0f,
+      0.597f,  0.770f,  0.761f, 1.0f,
+     0.559f,  0.436f,  0.730f, 1.0f,
+     0.359f,  0.583f,  0.152f, 1.0f,
+     0.483f,  0.596f,  0.789f, 1.0f,
+     0.559f,  0.861f,  0.639f, 1.0f,
+     0.195f,  0.548f,  0.859f, 1.0f,
+     0.014f,  0.184f,  0.576f, 1.0f,
+     0.771f,  0.328f,  0.970f, 1.0f,
+     0.406f,  0.615f,  0.116f, 1.0f,
+     0.676f,  0.977f,  0.133f, 1.0f,
+     0.971f,  0.572f,  0.833f, 1.0f,
+     0.140f,  0.616f,  0.489f, 1.0f,
+     0.997f,  0.513f,  0.064f, 1.0f,
+     0.945f,  0.719f,  0.592f, 1.0f,
+     0.543f,  0.021f,  0.978f, 1.0f,
+     0.279f,  0.317f,  0.505f, 1.0f,
+     0.167f,  0.620f,  0.077f, 1.0f,
+     0.347f,  0.857f,  0.137f, 1.0f,
+     0.055f,  0.953f,  0.042f, 1.0f,
+     0.714f,  0.505f,  0.345f, 1.0f,
+     0.783f,  0.290f,  0.734f, 1.0f,
+     0.722f,  0.645f,  0.174f, 1.0f,
+     0.302f,  0.455f,  0.848f, 1.0f,
+     0.225f,  0.587f,  0.040f, 1.0f,
+     0.517f,  0.713f,  0.338f, 1.0f,
+     0.053f,  0.959f,  0.120f, 1.0f,
+     0.393f,  0.621f,  0.362f, 1.0f,
+     0.673f,  0.211f,  0.457f, 1.0f,
+     0.820f,  0.883f,  0.371f, 1.0f,
+     0.982f,  0.099f,  0.879f, 1.0f
 };
 
 
@@ -392,19 +393,17 @@ void saveScreenshot(const char * filename)
 
 
 void renderImage() {
-  /*glBindVertexArray(vao);
+  glBindVertexArray(vao);
   GLint first = 0;
   GLsizei count = numberOfVertices;
-  glDrawArrays(GL_LINE_STRIP,first,count);*/
+  glDrawArrays(GL_LINE_STRIP,first,count);
 
   //CUBE RENDERING
-  glBindVertexArray(vao);
-  glDrawArrays(GL_TRIANGLES, 0, 12*3); // 12*3 indices starting at 0 -> 12 triangles -> 6 squares
+  glBindVertexArray(cubeVAO);
+  glDrawArrays(GL_TRIANGLES, 0, 12*3); // 12*3 indices starting at 0 -> 12 triangles -> 6 squares*/
 
-
+  //unbind the VAOs
   glBindVertexArray(0);
-
-
 
 }
 
@@ -414,22 +413,24 @@ void displayFunc()
 
   matrix->SetMatrixMode(OpenGLMatrix::ModelView);
   matrix->LoadIdentity();
-  matrix->LookAt(1, 0, 2, 0, 0, -1, 0, 1, 0); // default camera
+  matrix->LookAt(0, 0, 0, 1, 0, 0, 0, 0, 1); // default camera
   //matrix->LookAt(0,100,200,0,0,0,0,1,0);
   //matrix->Translate(-128,0,120);
+
+  //do some scaling
+  matrix->Scale(landScale[0],landScale[1],landScale[2]);
+
+  //do rotations using landRotate
+  matrix->Rotate(landRotate[0]/2.0,1.0,0.0,0.0);  
+  matrix->Rotate(landRotate[1]/2.0,0.0,1.0,0.0);
+  matrix->Rotate(landRotate[2]/2.0,0.0,0.0,1.0);
 
   //do translation using landTranslate 
   matrix->Translate(landTranslate[0],landTranslate[1],landTranslate[2]);
   //matrix->Translate(0.0,landTranslate[1],0.0);
   //matrix->Translate(0.0,0.0,landTranslate[2]);
 
-  //do rotations using landRotate
-  matrix->Rotate(landRotate[0],1.0,0.0,0.0);  
-  matrix->Rotate(landRotate[1],0.0,1.0,0.0);
-  matrix->Rotate(landRotate[2],0.0,0.0,1.0);
 
-  //do some scaling
-  matrix->Scale(landScale[0],landScale[1],landScale[2]);
 
   //pipelineProgram->Bind(); optional
 
@@ -504,13 +505,13 @@ void mouseMotionDragFunc(int x, int y)
       if (leftMouseButton)
       {
         // control x,y rotation via the left mouse button
-        landRotate[0] += mousePosDelta[1];
-        landRotate[1] += mousePosDelta[0];
+        landRotate[1] -= mousePosDelta[1];
+        landRotate[2] += mousePosDelta[0];
       }
       if (middleMouseButton)
       {
         // control z rotation via the middle mouse button
-        landRotate[2] += mousePosDelta[1];
+        landRotate[0] += mousePosDelta[1];
       }
       break;
 
@@ -617,27 +618,35 @@ void keyboardFunc(unsigned char key, int x, int y)
       break;
 
     case 'w':
-      landTranslate[1]-=0.1;
+      landTranslate[1]-=factor;
       break;
 
     case 'a':
-      landTranslate[0]+=0.1;
+      landTranslate[0]+=factor;
       break;
 
     case 's':
-      landTranslate[1]+=0.1;
+      landTranslate[1]+=factor;
       break;
 
     case 'd':
-      landTranslate[0]-=0.1;
+      landTranslate[0]-=factor;
       break;
 
     case 'z':
-      landTranslate[2]+=0.1;
+      landTranslate[2]+=factor;
       break;
 
     case 'x':
-      landTranslate[2]-=0.1;
+      landTranslate[2]-=factor;
+      break;
+
+    case 't':
+      factor*=2;
+      break;
+
+    case 'y':
+      factor/=2;
       break;
 
     case 'c':
@@ -735,18 +744,11 @@ void initVBO() {
 
   // upload position data
   int loc = 0;
-  //glBufferSubData(GL_ARRAY_BUFFER, loc, positionSize, positions);
-  glBufferSubData(GL_ARRAY_BUFFER,loc,sizeof(g_vertex_buffer_data), g_vertex_buffer_data);
+  glBufferSubData(GL_ARRAY_BUFFER, loc, positionSize, positions);
 
   // upload color data
   loc = positionSize;
-  //glBufferSubData(GL_ARRAY_BUFFER, loc, colorSize, colors);
-  glBufferSubData(GL_ARRAY_BUFFER, loc, sizeof(g_color_buffer_data), g_color_buffer_data);
-
-
-  /*glGenBuffers(1, &cubeBuffer);
-  glBindBuffer(GL_ARRAY_BUFFER, cubeBuffer);
-  glBufferData(GL_ARRAY_BUFFER, sizeof(g_vertex_buffer_data), g_vertex_buffer_data, GL_STATIC_DRAW);*/
+  glBufferSubData(GL_ARRAY_BUFFER, loc, colorSize, colors);
 
 
 
@@ -760,27 +762,6 @@ void initPipelineProgram() {
 }
 
 void initVAO() {
-
-  //CUBE RENDERING
-  /*glGenVertexArrays(1,&cubeVAO);
-  glBindVertexArray(cubeVAO);
-
-  // get location index of the “position” shader variable
-  GLuint loc = glGetAttribLocation(program, "position");
-  glEnableVertexAttribArray(loc); // enable the “position” attribute
-  const void * offset = 0; GLsizei stride = 0;
-  GLboolean normalized = GL_FALSE;
-  // set the layout of the “position” attribute data
-  glVertexAttribPointer(loc, 3, GL_FLOAT, normalized, stride, offset);
-
-  // get the location index of the “color” shader variable
-  loc = glGetAttribLocation(program, "color");
-  glEnableVertexAttribArray(loc); // enable the “color” attribute
-  offset = (void *)sizeof(g_vertex_buffer_data); 
-  // set the layout of the “color” attribute data
-  glVertexAttribPointer(loc, 3, GL_FLOAT, normalized, stride, offset);
-  glBindVertexArray(0); // unbind the VAO*/
-
 
   glGenVertexArrays(1,&vao);
   glBindVertexArray(vao);
@@ -798,9 +779,39 @@ void initVAO() {
   glEnableVertexAttribArray(loc); // enable the “color” attribute
   offset = (void *)(uintptr_t)positionSize; 
   // set the layout of the “color” attribute data
-  glVertexAttribPointer(loc, 3, GL_FLOAT, normalized, stride, offset);
+  glVertexAttribPointer(loc, 4, GL_FLOAT, normalized, stride, offset);
   glBindVertexArray(0); // unbind the VAO
+}
 
+void initCube() {
+  glGenBuffers(1, &cubeBuffer);
+  glBindBuffer(GL_ARRAY_BUFFER, cubeBuffer);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(g_vertex_buffer_data) + sizeof(g_color_buffer_data), NULL, GL_STATIC_DRAW);
+
+  glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(g_vertex_buffer_data), g_vertex_buffer_data);
+  glBufferSubData(GL_ARRAY_BUFFER, sizeof(g_vertex_buffer_data), sizeof(g_color_buffer_data), g_color_buffer_data);
+
+  program = pipelineProgram->GetProgramHandle();
+  pipelineProgram->Bind();
+
+  glGenVertexArrays(1,&cubeVAO);
+  glBindVertexArray(cubeVAO);
+
+  // get location index of the “position” shader variable
+  GLuint loc = glGetAttribLocation(program, "position");
+  glEnableVertexAttribArray(loc); // enable the “position” attribute
+  const void * offset = 0; GLsizei stride = 0;
+  GLboolean normalized = GL_FALSE;
+  // set the layout of the “position” attribute data
+  glVertexAttribPointer(loc, 3, GL_FLOAT, normalized, stride, offset);
+
+  // get the location index of the “color” shader variable
+  loc = glGetAttribLocation(program, "color");
+  glEnableVertexAttribArray(loc); // enable the “color” attribute
+  offset = (void *)sizeof(g_vertex_buffer_data); 
+  // set the layout of the “color” attribute data
+  glVertexAttribPointer(loc, 4, GL_FLOAT, normalized, stride, offset);
+  glBindVertexArray(0); // unbind the VAO
 }
 
 void initScene(int argc, char *argv[])
@@ -826,9 +837,15 @@ void initScene(int argc, char *argv[])
   //call with u = 0.001 and s = 0.5 
   fillSplineData(0.001, 0.5);
 
+
   initVBO();
   initPipelineProgram();
   initVAO();
+
+  initCube();
+
+  //initTextureVBO();
+  //initTextureVAO();
 
 }
 
