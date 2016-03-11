@@ -9,6 +9,7 @@
 #include <cstring>
 #include <sstream>
 #include <String>
+#include <vector>
 
 #include "openGLHeader.h"
 #include "glutHeader.h"
@@ -86,7 +87,6 @@ GLuint vao;
 GLuint cubeBuffer;
 GLuint cubeVAO;
 
-
 BasicPipelineProgram * pipelineProgram;
 GLuint program;;
 
@@ -111,48 +111,11 @@ float factor = 1.0f;
 
 int screenshotNum = 1;
 
-static const GLfloat g_vertex_buffer_data[] = {
-      -50.0f,-50.0f,-1.0f, // triangle 50 : begin
-      -50.0f,-50.0f, 50.0f,
-      -50.0f, 50.0f, 50.0f, // triangle 50 : end
-      50.0f, 50.0f,-1.0f, // triangle 2 : begin
-      -50.0f,-50.0f,-1.0f,
-      -50.0f, 50.0f,-1.0f, // triangle 2 : end
-      50.0f,-50.0f, 50.0f,
-       -50.0f,-50.0f,-1.0f,
-       50.0f,-50.0f,-1.0f,
-       50.0f, 50.0f,-1.0f,
-       50.0f,-50.0f,-1.0f,
-       -50.0f,-50.0f,-1.0f,
-       -50.0f,-50.0f,-1.0f,
-       -50.0f, 50.0f, 50.0f,
-       -50.0f, 50.0f,-1.0f,
-       50.0f,-50.0f, 50.0f,
-       -50.0f,-50.0f, 50.0f,
-       -50.0f,-50.0f,-1.0f,
-       -50.0f, 50.0f, 50.0f,
-       -50.0f,-50.0f, 50.0f,
-       50.0f,-50.0f, 50.0f,
-       50.0f, 50.0f, 50.0f,
-       50.0f,-50.0f,-1.0f,
-       50.0f, 50.0f,-1.0f,
-       50.0f,-50.0f,-1.0f,
-       50.0f, 50.0f, 50.0f,
-       50.0f,-50.0f, 50.0f,
-       50.0f, 50.0f, 50.0f,
-       50.0f, 50.0f,-1.0f,
-       -50.0f, 50.0f,-1.0f,
-       50.0f, 50.0f, 50.0f,
-       -50.0f, 50.0f,-1.0f,
-       -50.0f, 50.0f, 50.0f,
-       50.0f, 50.0f, 50.0f,
-       -50.0f, 50.0f, 50.0f,
-       50.0f,-50.0f, 50.0f
-};
+vector<float> cube_pos;
+vector<float> cube_uvs;
 
-float* cube_color = new float[4*36];
-float cubeColorSize = 4*36*sizeof(float);
-
+float maxHeight = 100.0f;
+float minHeight = -1.0f;
 
 
 
@@ -308,7 +271,7 @@ void setTextureUnit(GLint unit)
 {
  glActiveTexture(unit); // select the active texture unit
  // get a handle to the “textureImage” shader variable
- GLint h_textureImage = glGetUniformLocation(program, "textureImage");
+ GLint h_textureImage = glGetUniformLocation(cubeProgram, "textureImage");
  // deem the shader variable “textureImage” to read from texture unit “unit”
  glUniform1i(h_textureImage, unit - GL_TEXTURE0);
 } 
@@ -328,17 +291,6 @@ void saveScreenshot(const char * filename)
   delete [] screenshotData;
 }
 
-
-void renderImage() {
-
-  //CUBE RENDERING
-  glBindVertexArray(cubeVAO);
-  glDrawArrays(GL_TRIANGLES, 0, 12*3); // 12*3 indices starting at 0 -> 12 triangles -> 6 squares*/
-
-  //unbind the VAOs
-  glBindVertexArray(0);
-
-}
 
 void displayFunc()
 {
@@ -389,17 +341,34 @@ void displayFunc()
   cubePipelineProgram->Bind();
 
   //Uploads information to openGL
+  matrix->SetMatrixMode(OpenGLMatrix::ModelView);
   h_modelViewMatrix=glGetUniformLocation(cubeProgram,"modelViewMatrix");
   matrix->GetMatrix(m);
-  glUniformMatrix4fv(h_modelViewMatrix,1,isRowMajor,m);
+  glUniformMatrix4fv(h_modelViewMatrix,1,GL_FALSE,m);
 
   //Change to projection mode
   matrix->SetMatrixMode(OpenGLMatrix::Projection);
   h_projectionMatrix = glGetUniformLocation(cubeProgram,"projectionMatrix");
   matrix->GetMatrix(p);
-  glUniformMatrix4fv(h_projectionMatrix,1,isRowMajor,p);
+  glUniformMatrix4fv(h_projectionMatrix,1,GL_FALSE,p);
+  
+  setTextureUnit(GL_TEXTURE0);
 
-  //Draw the world textures as a cube
+  //Draw the ground textures as a cube
+
+  glBindTexture(GL_TEXTURE_2D,groundTexHandle);
+  glBindVertexArray(cubeVAO);
+
+  glDrawArrays(GL_TRIANGLES,0,6);
+
+
+  //Draw the sky textures around the cube
+
+  glBindTexture(GL_TEXTURE_2D,skyTexHandle);
+  glDrawArrays(GL_TRIANGLES,6,30);
+
+
+  glBindVertexArray(0);
 
 
   //swap frame buffers
@@ -681,8 +650,13 @@ void fillSplineData(float u, float s) {
 		}
 	}
 
-	for(int i=0; i<numberOfVertices*4; i++) {
-		colors[i] = 1.0;
+	for(int i=0; i<numberOfVertices*4; i+=4) {
+		colors[i] = 1.0f;
+    colors[i+1] = 0.0f;
+    colors[i+2] = 0.0f;
+    colors[i+3] = 1.0f;
+
+
 	}
 
 }
@@ -702,20 +676,12 @@ void initVBO() {
   loc = positionSize;
   glBufferSubData(GL_ARRAY_BUFFER, loc, colorSize, colors);
 
-
-
 }
 
 void initPipelineProgram() {
   pipelineProgram = new BasicPipelineProgram();
   pipelineProgram->Init("../openGLHelper-starterCode");
   program = pipelineProgram->GetProgramHandle();
-  pipelineProgram->Bind();
-
-  cubePipelineProgram = new BasicPipelineProgram();
-  cubePipelineProgram->BuildShadersFromFiles("../openGLHelper-starterCode", "texture.vertexShader.glsl", "texture.fragmentShader.glsl");
-  cout << "Successfully built the texture pipeline program." << endl;
-
 }
 
 void initVAO() {
@@ -740,16 +706,172 @@ void initVAO() {
   glBindVertexArray(0); // unbind the VAO
 }
 
+//Add a triangle to the world texture 
+void addTriangle(float posA[3], float posB[3], float posC[3],
+ float uvA[2], float uvB[2], float uvC[2]) {
+   cube_pos.push_back(posA[0]); cube_pos.push_back(posA[1]); cube_pos.push_back(posA[2]);
+   cube_pos.push_back(posB[0]); cube_pos.push_back(posB[1]); cube_pos.push_back(posB[2]);
+   cube_pos.push_back(posC[0]); cube_pos.push_back(posC[1]); cube_pos.push_back(posC[2]);
+   cube_uvs.push_back(uvA[0]); cube_uvs.push_back(uvA[1]);
+   cube_uvs.push_back(uvB[0]); cube_uvs.push_back(uvB[1]);
+   cube_uvs.push_back(uvC[0]); cube_uvs.push_back(uvC[1]);
+} 
+
+void fillTextureData() {
+  //Load the texture data from files first and bind them to a handle
+  glGenTextures(1, &groundTexHandle);
+  glGenTextures(1, &skyTexHandle);
+  initTexture("textures/wood.jpg",groundTexHandle);
+  initTexture("textures/sky.jpg",skyTexHandle);
+
+  //Creates the ground 
+  float posA0[] = {-maxHeight, -maxHeight, minHeight};
+  float posB0[] = {-maxHeight, maxHeight, minHeight};
+  float posC0[] = {maxHeight, -maxHeight, minHeight};
+
+  float uvA0[] = {0.0f, 1.0f};
+  float uvB0[] = {0.0f, 0.0f};
+  float uvC0[] = {1.0f, 1.0f};
+
+  addTriangle(posA0, posB0, posC0, uvA0, uvB0, uvC0);
+
+  float posA1[] = {maxHeight, -maxHeight, minHeight};
+  float posB1[] = {maxHeight, maxHeight, minHeight};
+  float posC1[] = {-maxHeight, maxHeight, minHeight};
+
+  float uvA1[] = {1.0f, 1.0f};
+  float uvB1[] = {1.0f, 0.0f};
+  float uvC1[] = {0.0f, 0.0f};
+
+  addTriangle(posA1, posB1, posC1, uvA1, uvB1, uvC1);
+
+
+  //Creates the other 5 walls of the skybox
+  //Left wall
+  float posA2[] = {-maxHeight, -maxHeight, minHeight};
+  float posB2[] = {-maxHeight, -maxHeight, maxHeight};
+  float posC2[] = {-maxHeight, maxHeight, maxHeight};
+
+  float uvA2[] = {1.0f, 0.0f};
+  float uvB2[] = {1.0f, 1.0f};
+  float uvC2[] = {0.0f, 1.0f};
+
+  addTriangle(posA2, posB2, posC2, uvA2, uvB2, uvC2);
+
+  float posA3[] = {-maxHeight, maxHeight, minHeight};
+  float posB3[] = {-maxHeight, -maxHeight, minHeight};
+  float posC3[] = {-maxHeight, maxHeight, maxHeight};
+
+  float uvA3[] = {0.0f, 0.0f};
+  float uvB3[] = {1.0f, 0.0f};
+  float uvC3[] = {0.0f, 1.0f};
+
+  addTriangle(posA3, posB3, posC3, uvA3, uvB3, uvC3);
+
+  //Top wall
+  float posA4[] = {-maxHeight, -maxHeight, maxHeight};
+  float posB4[] = {-maxHeight, maxHeight, maxHeight};
+  float posC4[] = {maxHeight, -maxHeight, maxHeight};
+
+  float uvA4[] = {0.0f, 1.0f};
+  float uvB4[] = {0.0f, 0.0f};
+  float uvC4[] = {1.0f, 1.0f};
+
+  addTriangle(posA4, posB4, posC4, uvA4, uvB4, uvC4);
+
+  float posA5[] = {maxHeight, -maxHeight, maxHeight};
+  float posB5[] = {maxHeight, maxHeight, maxHeight};
+  float posC5[] = {-maxHeight, maxHeight, maxHeight};
+
+  float uvA5[] = {1.0f, 1.0f};
+  float uvB5[] = {1.0f, 0.0f};
+  float uvC5[] = {0.0f, 0.0f};
+
+  addTriangle(posA5, posB5, posC5, uvA5, uvB5, uvC5);
+
+  //Right wall
+  float posA6[] = {maxHeight, -maxHeight, minHeight};
+  float posB6[] = {maxHeight, -maxHeight, maxHeight};
+  float posC6[] = {maxHeight, maxHeight, maxHeight};
+
+  float uvA6[] = {1.0f, 0.0f};
+  float uvB6[] = {1.0f, 1.0f};
+  float uvC6[] = {0.0f, 1.0f};
+
+  addTriangle(posA6, posB6, posC6, uvA6, uvB6, uvC6);
+
+  float posA7[] = {maxHeight, maxHeight, minHeight};
+  float posB7[] = {maxHeight, -maxHeight, minHeight};
+  float posC7[] = {maxHeight, maxHeight, maxHeight};
+
+  float uvA7[] = {0.0f, 0.0f};
+  float uvB7[] = {1.0f, 0.0f};
+  float uvC7[] = {0.0f, 1.0f};
+
+  addTriangle(posA7, posB7, posC7, uvA7, uvB7, uvC7);
+
+  //Back wall
+  float posA8[] = {-maxHeight, -maxHeight, maxHeight};
+  float posB8[] = {maxHeight, -maxHeight, maxHeight};
+  float posC8[] = {-maxHeight, -maxHeight, minHeight};
+
+  float uvA8[] = {0.0f, 1.0f};
+  float uvB8[] = {1.0f, 1.0f};
+  float uvC8[] = {0.0f, 0.0f};
+
+  addTriangle(posA8, posB8, posC8, uvA8, uvB8, uvC8);
+
+  float posA9[] = {-maxHeight, -maxHeight, minHeight};
+  float posB9[] = {maxHeight, -maxHeight, minHeight};
+  float posC9[] = {maxHeight, -maxHeight, maxHeight};
+
+  float uvA9[] = {0.0f, 0.0f};
+  float uvB9[] = {1.0f, 0.0f};
+  float uvC9[] = {1.0f, 1.0f};
+
+  addTriangle(posA9, posB9, posC9, uvA9, uvB9, uvC9);
+
+
+  //Front wall
+  float posA10[] = {-maxHeight, maxHeight, maxHeight};
+  float posB10[] = {maxHeight, maxHeight, maxHeight};
+  float posC10[] = {-maxHeight, maxHeight, minHeight};
+
+  float uvA10[] = {0.0f, 1.0f};
+  float uvB10[] = {1.0f, 1.0f};
+  float uvC10[] = {0.0f, 0.0f};
+
+  addTriangle(posA10, posB10, posC10, uvA10, uvB10, uvC10);
+
+  float posA11[] = {-maxHeight, maxHeight, minHeight};
+  float posB11[] = {maxHeight, maxHeight, minHeight};
+  float posC11[] = {maxHeight, maxHeight, maxHeight};
+
+  float uvA11[] = {0.0f, 0.0f};
+  float uvB11[] = {1.0f, 0.0f};
+  float uvC11[] = {1.0f, 1.0f};
+
+  addTriangle(posA11, posB11, posC11, uvA11, uvB11, uvC11);
+
+
+}
+
+//Creates the VBO, initializes the program, and VAO for the sky and ground textures
 void initCube() {
-  for(int i=0; i<4*36; i++) 
-    cube_color[i] = 0.75f;
 
   glGenBuffers(1, &cubeBuffer);
   glBindBuffer(GL_ARRAY_BUFFER, cubeBuffer);
-  glBufferData(GL_ARRAY_BUFFER, sizeof(g_vertex_buffer_data) + cubeColorSize, NULL, GL_STATIC_DRAW);
+  glBufferData(GL_ARRAY_BUFFER, (cube_pos.size() + cube_uvs.size())*sizeof(float), NULL, GL_STATIC_DRAW);
 
-  glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(g_vertex_buffer_data), g_vertex_buffer_data);
-  glBufferSubData(GL_ARRAY_BUFFER, sizeof(g_vertex_buffer_data), cubeColorSize, cube_color);
+  glBufferSubData(GL_ARRAY_BUFFER, 0, cube_pos.size() * sizeof(float), cube_pos.data());
+  
+  // upload uv data
+  glBufferSubData(GL_ARRAY_BUFFER, cube_pos.size() * sizeof(float), cube_uvs.size() * sizeof(float), cube_uvs.data()); 
+
+
+  cubePipelineProgram = new BasicPipelineProgram();
+  cubePipelineProgram->BuildShadersFromFiles("../openGLHelper-starterCode", "texture.vertexShader.glsl", "texture.fragmentShader.glsl");
+  cout << "Successfully built the texture pipeline program." << endl;
 
   cubeProgram = cubePipelineProgram->GetProgramHandle();
   cubePipelineProgram->Bind();
@@ -765,10 +887,10 @@ void initCube() {
   // set the layout of the “position” attribute data
   glVertexAttribPointer(loc, 3, GL_FLOAT, normalized, stride, offset);
 
-  loc = glGetAttribLocation(cubeProgram, "texCooord");
-  glEnableVertexAttribArray(loc); // enable the “position” attribute
-  offset = (void *)sizeof(g_vertex_buffer_data); 
-  // set the layout of the “position” attribute data
+  loc = glGetAttribLocation(cubeProgram, "texCoord");
+  glEnableVertexAttribArray(loc); // enable the "texCoord" attribute
+  offset = (void *)(cube_pos.size()*sizeof(float)); 
+  // set the layout of the "texCoord" attribute data
   glVertexAttribPointer(loc, 2, GL_FLOAT, normalized, stride, offset);
 
   glBindVertexArray(0); // unbind the VAO
@@ -784,10 +906,9 @@ void initScene(int argc, char *argv[])
     printf("Num control points in spline %d: %d.\n", i, splines[i].numControlPoints);
 
    // load the image from a jpeg disk file to main memory
-  initTexture("textures/wood.jpg",groundTexHandle);
-  initTexture("textures/sky.jpg",skyTexHandle);
 
-  glClearColor(0.0f, 0.0f,0.0f, 0.0f);
+
+  glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 
   // do additional initialization here...
   glEnable(GL_DEPTH_TEST);
@@ -801,11 +922,8 @@ void initScene(int argc, char *argv[])
   initPipelineProgram();
   initVAO();
 
-
+  fillTextureData();
   initCube();
-
-  //initTextureVBO();
-  //initTextureVAO();
 
 }
 
