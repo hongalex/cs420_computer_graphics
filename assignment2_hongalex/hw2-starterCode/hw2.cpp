@@ -102,7 +102,7 @@ GLuint cubeBuffer;
 GLuint cubeVAO;
 
 BasicPipelineProgram * pipelineProgram;
-GLuint program;;
+GLuint program;
 
 BasicPipelineProgram* cubePipelineProgram;
 GLuint cubeProgram;
@@ -111,6 +111,7 @@ int imageHeight;
 int imageWidth;
 
 Vector3* positions;
+Vector3* points;
 Vector4* colors;
 
 //Unit vectors at each point
@@ -120,7 +121,7 @@ Vector3* binormals;
 
 
 int numberOfVertices;
-int positionSize, colorSize;
+int positionSize, colorSize, pointsSize;
 
 GLfloat theta[3] = {0.0,0.0,0.0};
 GLfloat delta = 2.0;
@@ -134,14 +135,17 @@ int screenshotNum = 1;
 vector<float> cube_pos;
 vector<float> cube_uvs;
 
+vector<Vector3> cubeData;
+
 //Min and max height of the skybox + ground texture
 float maxHeight = 100.0f;
 float minHeight = -1.0f;
 
 int currentPosition = 0;
 
+float alpha = 0.1f;
 
-//Utility functions 
+/*===================Utility functions==================*/
 string StringToInt(int i) {
   ostringstream oss;
   oss << i;
@@ -156,27 +160,79 @@ float square(float x) {
 	return x*x;
 }
 
-//Takes two vectors, crosses them, and returns the result
-Vector3* crossProduct(Vector3 first, Vector3 second) {
+/**
+ * Calculates the cross product of two vectors
+ *
+ * @param first- The first vector to cross
+ * @param second-The second vector to cross 
+ *
+ *
+ * @return Vector3-  the result of the cross product 
+ */
+Vector3 crossProduct(Vector3 first, Vector3 second) {
   Vector3* result = new Vector3();
   result->x = first.y * second.z - first.z * second.y;
   result->y = first.z * second.x - first.x * second.z;
   result->z = first.x * second.y - first.y * second.x;
-  return result;
+  return *result;
 }
 
-//Returns the unit vector of any given vector
-Vector3* normalize(Vector3* vec) {
+/**
+ * Calculates unit vector given any vector
+ *
+ * @param vec- The vector to normalize
+ *
+ *
+ * @return Vector3- resultant vector
+ */
+Vector3 normalize(Vector3 vec) {
   Vector3* result = new Vector3();
-  float length = sqrt(square(vec->x)+square(vec->y)+square(vec->z));
+  float length = sqrt(square(vec.x)+square(vec.y)+square(vec.z));
 
-  result->x = vec->x/length;
-  result->y = vec->y/length;
-  result->z = vec->z/length;
-  return result;
+  result->x = vec.x/length;
+  result->y = vec.y/length;
+  result->z = vec.z/length;
+  return *result;
 
 }
-//End Utility Functions
+
+
+/**
+ * Calculates the value of adding two vectors multiplied by alpha
+ *
+ * @param first- The first vector to add
+ * @param second-The second vector to add
+ *
+ *
+ * @return Vector3- resultant vector
+ */
+Vector3 vectorAdd(Vector3 first, Vector3 second) {
+  Vector3* result = new Vector3();
+
+  result->x = (first.x + second.x);
+  result->y = (first.y + second.y);
+  result->z = (first.z + second.z);
+  return *result;
+}
+
+/**
+ * Calculates the value of a vector multiplied by a scalar
+ *
+ * @param vec- The vector to multiply by a scalar
+ *
+ * @return Vector3- resultant vector
+ */
+Vector3 vectorScalar(Vector3 vec, float scalar) {
+  Vector3* result = new Vector3();
+
+  result->x = scalar*vec.x;
+  result->y = scalar*vec.y;
+  result->z = scalar*vec.z;
+  return *result;
+
+
+}
+/*===================End utility functions==============*/
 
 int loadSplines(char * argv) 
 {
@@ -334,7 +390,6 @@ void saveScreenshot(const char * filename)
   delete [] screenshotData;
 }
 
-
 void displayFunc()
 {
   glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
@@ -343,26 +398,21 @@ void displayFunc()
   matrix->LoadIdentity();
 
   //matrix->LookAt(0, 0, 0, 1, 0, 0, 0, 0, 1); // default camera
-  float ex = positions[currentPosition].x;
-  float ey = positions[currentPosition].y;
-  float ez = positions[currentPosition].z;
+  Vector3 p0 = positions[currentPosition];
+  float ex = vectorAdd(p0, vectorScalar(binormals[currentPosition],-3*alpha)).x; 
+  float ey = vectorAdd(p0, vectorScalar(binormals[currentPosition],-3*alpha)).y;
+  float ez = vectorAdd(p0, vectorScalar(binormals[currentPosition],-3*alpha)).z;
 
-  float fx = ex+ tangents[currentPosition].x;
-  float fy = ey+ tangents[currentPosition].y;
-  float fz = ez+tangents[currentPosition].z;
+  float fx = ex + tangents[currentPosition].x;
+  float fy = ey + tangents[currentPosition].y;
+  float fz = ez + tangents[currentPosition].z;
 
-  float ux = abs(binormals[currentPosition].x)/10;
-  float uy = abs(binormals[currentPosition].y)/10;
-  float uz = 1.0;//abs(binormals[currentPosition].z)/100;
-  // cout << "Ux: " << ux << endl;
-  // cout << "Uy: " << uy << endl;
-  // cout << "Uz: " << uz << endl;
+  float ux = -1*binormals[currentPosition].x;
+  float uy = -1*binormals[currentPosition].y;
+  float uz = -1*binormals[currentPosition].z;
 
   matrix->LookAt(ex, ey, ez, fx, fy, fz, ux, uy, uz);
-
-
-  //matrix->LookAt(0,100,200,0,0,0,0,1,0);
-  //matrix->Translate(-128,0,120);
+  //matrix->LookAt(0,0,0,1,0,0,0,0,1);
 
   //do some scaling
   matrix->Scale(landScale[0],landScale[1],landScale[2]);
@@ -396,8 +446,9 @@ void displayFunc()
   //Draw the main roller coaster
   glBindVertexArray(vao);
   GLint first = 0;
-  GLsizei count = numberOfVertices;
-  glDrawArrays(GL_LINE_STRIP,first,count);
+  //36 is 6 faces * 2 triangles * 3 vertices
+  GLsizei count = numberOfVertices*36;
+  glDrawArrays(GL_TRIANGLES,first,count);
   glBindVertexArray(0);
 
   cubePipelineProgram->Bind();
@@ -632,6 +683,8 @@ void keyboardFunc(unsigned char key, int x, int y)
     case 'p':
       if(currentPosition+numberOfVertices/500 <= numberOfVertices) {
         currentPosition+=numberOfVertices/500;
+      } else {
+        currentPosition = 0;
       }
       break;
 
@@ -661,6 +714,28 @@ void keyboardFunc(unsigned char key, int x, int y)
   }
 }
 
+void createCubeData(Vector3 v0, Vector3 v1, Vector3 v2, Vector3 v3, Vector3 v4, Vector3 v5, Vector3 v6, Vector3 v7) {
+  cubeData.push_back(v0); cubeData.push_back(v1); cubeData.push_back(v2); //first triangle
+  cubeData.push_back(v2); cubeData.push_back(v3); cubeData.push_back(v0); //second triangle
+
+  cubeData.push_back(v2); cubeData.push_back(v1); cubeData.push_back(v5);
+  cubeData.push_back(v5); cubeData.push_back(v6); cubeData.push_back(v2);
+
+  cubeData.push_back(v0); cubeData.push_back(v4); cubeData.push_back(v5);
+  cubeData.push_back(v5); cubeData.push_back(v1); cubeData.push_back(v0);
+
+  cubeData.push_back(v3); cubeData.push_back(v7); cubeData.push_back(v6);
+  cubeData.push_back(v6); cubeData.push_back(v2); cubeData.push_back(v3);
+
+  cubeData.push_back(v3); cubeData.push_back(v0); cubeData.push_back(v4);
+  cubeData.push_back(v4); cubeData.push_back(v7); cubeData.push_back(v3);
+
+  cubeData.push_back(v7); cubeData.push_back(v4); cubeData.push_back(v5);
+  cubeData.push_back(v5); cubeData.push_back(v6); cubeData.push_back(v7);
+
+
+}
+
 //fill data with Catmull-Rom Spline formula
 void fillSplineData(float u, float s) {
 	numberOfVertices=0;
@@ -675,9 +750,9 @@ void fillSplineData(float u, float s) {
 	}
 
 	positions = new Vector3[numberOfVertices];
-	colors = new Vector4[numberOfVertices];
+	colors = new Vector4[numberOfVertices*36];
 	positionSize = numberOfVertices*3*sizeof(float); 
-	colorSize = numberOfVertices*4*sizeof(float);
+	colorSize = numberOfVertices*36*4*sizeof(float);
 
   tangents = new Vector3[numberOfVertices];
   normals = new Vector3[numberOfVertices];
@@ -734,49 +809,72 @@ void fillSplineData(float u, float s) {
         tangents[index].x = temp0*x0 + temp1*x1 + temp2*x2 + temp3*x3;
         tangents[index].y = temp0*y0 + temp1*y1 + temp2*y2 + temp3*y3;
         tangents[index].z = temp0*z0 + temp1*z1 + temp2*z2 + temp3*z3;
-        tangents[index] = (*normalize(&tangents[index]));
+        tangents[index] = normalize(tangents[index]);
 
         index++;
 			}
 		}
 	}
 
-  //fill in the color values
-	for(int i=0; i<numberOfVertices; i++) {
-		colors[i] = Vector4();
-    colors[i].r = 0.0f;
-    colors[i].g = 0.0f;
-    colors[i].b = 0.0f;
-    colors[i].a = 0.0f;
-	}
 
   //calculate the normal and binormal vectors
   Vector3 arb = Vector3();
-  arb.x = 0.0f; arb.y = 0.0f; arb.z = 1.0f;
-  normals[0] = *(normalize(crossProduct(tangents[0],arb)));
-  binormals[0] = *(normalize(crossProduct(tangents[0],normals[0])));
+  arb.x = 0.0f; arb.y =0.0f; arb.z = 1.0f;
+  normals[0] = normalize(crossProduct(tangents[0],arb));
+  binormals[0] = normalize(crossProduct(tangents[0],normals[0]));
   for(int i=1; i < numberOfVertices; i++) {
-    normals[i] = *(normalize(crossProduct(binormals[i-1],tangents[i])));
-    binormals[i] = *(normalize(crossProduct(tangents[i],normals[i])));
-
+    normals[i] = normalize(crossProduct(binormals[i-1],tangents[i]));
+    binormals[i] = normalize(crossProduct(tangents[i],normals[i]));
   }
 
+  points = new Vector3[numberOfVertices*4];
+  pointsSize = 4*numberOfVertices*3*sizeof(float);
 
+  index = 0;
+  for(int i=0; i<numberOfVertices; i++) {
+    Vector3 pos0 = positions[i];
+    Vector3 n0 = normals[i];
+    Vector3 b0 = binormals[i];
+    Vector3 n0_negative = vectorScalar(n0,-1.0);
+    Vector3 b0_negative = vectorScalar(b0,-1.0);
+
+
+    points[index] = vectorAdd(pos0,vectorScalar(vectorAdd(n0_negative,b0),alpha));
+    index++;
+    points[index] = vectorAdd(pos0,vectorScalar(vectorAdd(n0,b0),alpha));
+    index++;
+    points[index] = vectorAdd(pos0,vectorScalar(vectorAdd(n0,b0_negative),alpha));
+    index++;
+    points[index] = vectorAdd(pos0,vectorScalar(vectorAdd(n0_negative,b0_negative),alpha));
+    index++;
+  }
+
+  //fill in the color values
+  for(int i=0; i<numberOfVertices*36; i++) {
+    colors[i].r = 0.5f;
+    colors[i].g = 0.5f;
+    colors[i].b = 0.5f;
+    colors[i].a = 0.5f;
+  }
+
+  for(int i=0; i<4*(numberOfVertices-1); i+=4) {
+    createCubeData(points[i], points[i+1], points[i+2], points[i+3], points[i+4], points[i+5], points[i+6], points[i+7]);
+  }
 }
 
 void initVBO() {
   glGenBuffers(1, &buffer);
   glBindBuffer(GL_ARRAY_BUFFER, buffer);
-  glBufferData(GL_ARRAY_BUFFER, positionSize + colorSize,
+  glBufferData(GL_ARRAY_BUFFER, cubeData.size() * 3* sizeof(float) + colorSize,
      NULL, GL_STATIC_DRAW); // init buffer’s size, but don’t assign any
                           // data to it
 
   // upload position data
   int loc = 0;
-  glBufferSubData(GL_ARRAY_BUFFER, loc, positionSize, positions);
+  glBufferSubData(GL_ARRAY_BUFFER, loc, cubeData.size()*3*sizeof(float), cubeData.data());
 
   // upload color data
-  loc = positionSize;
+  loc = cubeData.size()*3*sizeof(float);
   glBufferSubData(GL_ARRAY_BUFFER, loc, colorSize, colors);
 
 }
@@ -803,7 +901,7 @@ void initVAO() {
   // get the location index of the “color” shader variable
   loc = glGetAttribLocation(program, "color");
   glEnableVertexAttribArray(loc); // enable the “color” attribute
-  offset = (void *)(uintptr_t)positionSize; 
+  offset = (void *)(uintptr_t)(cubeData.size() *3* sizeof(float)); 
   // set the layout of the “color” attribute data
   glVertexAttribPointer(loc, 4, GL_FLOAT, normalized, stride, offset);
   glBindVertexArray(0); // unbind the VAO
@@ -958,7 +1056,6 @@ void fillTextureData() {
 
 
 }
-
 //Creates the VBO, initializes the program, and VAO for the sky and ground textures
 void initCube() {
 
@@ -1019,14 +1116,6 @@ void initScene(int argc, char *argv[])
 
   //call with u = 0.001 and s = 0.5 
   fillSplineData(0.001, 0.5);
-  /*for(int i= 0; i< numberOfVertices; i++) {
-    cout << "Points" << endl;
-    cout << positions[i].x << "," << positions[i].y << "," << positions[i].z << endl;
-
-    cout << "Tangent" << endl;
-    cout << tangents[i].x << "," << tangents[i].y << "," << tangents[i].z << endl;
-  }*/
-
 
   initVBO();
   initPipelineProgram();

@@ -9,6 +9,5 @@ void main()
   // students need to implement this
   
   c = col;
-  //c = vec4(0.0, 0.0, 1.0, 1.0); 
 }
 
