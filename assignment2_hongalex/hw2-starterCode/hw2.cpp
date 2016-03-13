@@ -143,8 +143,8 @@ float minHeight = -1.0f;
 
 int currentPosition = 0; //position of the roler coaster we are at 
 
-float alpha = 0.1f; //alpha controls the cross section width and height
-float speed = 1000; //roller coaster speed
+float alpha = 0.05f; //alpha controls the cross section width and height
+float speed = 1500; //roller coaster speed
 
 /*===================Utility functions==================*/
 string StringToInt(int i) {
@@ -448,7 +448,7 @@ void displayFunc()
   glBindVertexArray(vao);
   GLint first = 0;
   //36 is 6 faces * 2 triangles * 3 vertices
-  GLsizei count = numberOfVertices*36;
+  GLsizei count = numberOfVertices*36*2;
   glDrawArrays(GL_TRIANGLES,first,count);
   glBindVertexArray(0);
 
@@ -763,9 +763,9 @@ void fillSplineData(float u, float s) {
 	}
 
 	positions = new Vector3[numberOfVertices];
-	colors = new Vector4[numberOfVertices*36];
+	colors = new Vector4[numberOfVertices*36*2];
 	positionSize = numberOfVertices*3*sizeof(float); 
-	colorSize = numberOfVertices*36*4*sizeof(float);
+	colorSize = numberOfVertices*36*4*2*sizeof(float);
 
   tangents = new Vector3[numberOfVertices];
   normals = new Vector3[numberOfVertices];
@@ -863,7 +863,7 @@ void fillSplineData(float u, float s) {
   }
 
   //fill in the color values
-  for(int i=0; i<numberOfVertices*36; i++) {
+  for(int i=0; i<numberOfVertices*36*2; i++) {
     colors[i].r = 0.5f;
     colors[i].g = 0.5f;
     colors[i].b = 0.5f;
@@ -871,7 +871,31 @@ void fillSplineData(float u, float s) {
   }
 
   for(int i=0; i<4*(numberOfVertices-1); i+=4) {
-    createCubeData(points[i], points[i+1], points[i+2], points[i+3], points[i+4], points[i+5], points[i+6], points[i+7]);
+    Vector3 p0 = points[i];
+    Vector3 p1 = points[i+1];
+    Vector3 p2 = points[i+2];
+    Vector3 p3 = points[i+3];
+    Vector3 p4 = points[i+4];
+    Vector3 p5 = points[i+5];
+    Vector3 p6 = points[i+6];
+    Vector3 p7 = points[i+7];
+
+    createCubeData(p0, p1, p2, p3, p4, p5, p6, p7);
+
+    Vector3 alphaScalar = vectorScalar(normals[i/4],4*alpha);
+    p0 = vectorAdd(p0, alphaScalar);
+    p1 = vectorAdd(p1, alphaScalar);
+    p2 = vectorAdd(p2, alphaScalar);
+    p3 = vectorAdd(p3, alphaScalar);
+    p4 = vectorAdd(p4, alphaScalar);
+    p5 = vectorAdd(p5, alphaScalar);
+    p6 = vectorAdd(p6, alphaScalar);
+    p7 = vectorAdd(p7, alphaScalar);
+
+    createCubeData(p0, p1, p2, p3, p4, p5, p6, p7);
+
+
+
   }
 }
 

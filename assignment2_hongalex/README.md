@@ -36,7 +36,7 @@ Extra Credit Features: (Answer these Questions with Y/N; you can also insert com
 
 1. Render a T-shaped rail cross section - N
 
-2. Render a Double Rail - N
+2. Render a Double Rail - Y
 
 3. Made the track circular and closed it with C1 continuity - N
 
@@ -78,6 +78,7 @@ Comments : (If any)
 
 3. However, some parts of the ride may appear tilted due to the nature of the curve. I have confirmed with other students that have had a similar issue.
 
+4. To compile, simply use "make" and then "./hw2 track.txt"
 
 
 
