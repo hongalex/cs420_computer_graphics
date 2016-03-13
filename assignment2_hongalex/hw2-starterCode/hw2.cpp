@@ -495,6 +495,22 @@ void idleFunc()
     currentPosition = 0;
   }
 
+      /*string filename = "screenshots/";
+      if(screenshotNum<10) {
+        filename+="00"+StringToInt(screenshotNum)+".jpg";
+        saveScreenshot(filename.c_str());
+      }
+      else if(screenshotNum < 100) {
+        filename+="0"+StringToInt(screenshotNum)+".jpg";
+        saveScreenshot(filename.c_str());
+      } else {
+        filename+=StringToInt(screenshotNum)+".jpg";
+        saveScreenshot(filename.c_str());
+      }
+
+      screenshotNum++;*/
+
+
   // display result (do not forget this!)
   glutPostRedisplay(); 
 
