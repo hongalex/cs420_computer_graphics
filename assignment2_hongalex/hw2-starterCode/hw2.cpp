@@ -141,9 +141,10 @@ vector<Vector3> cubeData;
 float maxHeight = 100.0f;
 float minHeight = -1.0f;
 
-int currentPosition = 0;
+int currentPosition = 0; //position of the roler coaster we are at 
 
-float alpha = 0.1f;
+float alpha = 0.1f; //alpha controls the cross section width and height
+float speed = 1000; //roller coaster speed
 
 /*===================Utility functions==================*/
 string StringToInt(int i) {
@@ -489,6 +490,11 @@ void displayFunc()
 
 void idleFunc()
 {
+  currentPosition+=numberOfVertices/speed;
+  if(currentPosition>=numberOfVertices) {
+    currentPosition = 0;
+  }
+
   // display result (do not forget this!)
   glutPostRedisplay(); 
 
@@ -681,17 +687,24 @@ void keyboardFunc(unsigned char key, int x, int y)
       break;
 
     case 'p':
-      if(currentPosition+numberOfVertices/500 <= numberOfVertices) {
-        currentPosition+=numberOfVertices/500;
+      if(currentPosition+numberOfVertices/speed <= numberOfVertices) {
+        currentPosition+=numberOfVertices/speed;
       } else {
         currentPosition = 0;
       }
       break;
 
     case 'o':
-      if(currentPosition-numberOfVertices/500 > 0) {
-        currentPosition-=numberOfVertices/500;
+      if(currentPosition-numberOfVertices/speed > 0) {
+        currentPosition-=numberOfVertices/speed;
       }      
+      break;
+
+    case 'm':
+      speed/=0.75;
+      break;
+    case 'n':
+      speed*=0.75;
       break;
 
     case 'c':
