@@ -1,6 +1,6 @@
 Assignment #3: Ray tracing
 
-FULL NAME: !!!replaceme!!!
+FULL NAME: Alexander Hong
 
 
 MANDATORY FEATURES
