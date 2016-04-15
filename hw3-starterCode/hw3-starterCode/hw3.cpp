@@ -68,6 +68,7 @@ struct Vertex
 struct Triangle
 {
 	Vertex v[3];
+
 };
 
 struct Sphere
@@ -195,6 +196,38 @@ double clamp(double x, double minVal, double maxVal) {
 	return std::min(std::max(x, minVal), maxVal);
 }
 
+dvec3 toVec3(double* array) {
+	dvec3 result;
+	result.x = array[0];
+	result.y = array[1];
+	result.z = array[2];
+	return result;
+}
+
+/**
+ * Calculate barycentric coordinates using a point inside a triangle, and the vertices of a triangle (a, b, and c)
+ *
+ * @return dvec3- a vec3 containing the values of Alpha, Beta, and Gamma
+ */
+dvec3 calcBarycentric(dvec3 point, dvec3 a, dvec3 b, dvec3 c) {
+	dvec3 v0 = b - a;
+	dvec3 v1 = c - a;
+	dvec3 v2 = point - a;
+
+	double d00 = dot(v0, v0);
+	double d01 = dot(v0, v1);
+	double d11 = dot(v1, v1);
+	double d20 = dot(v2, v0);
+	double d21 = dot(v2, v1);
+
+	double result = d00*d11 - d01 *d01;
+	dvec3 vec_result;
+	vec_result.x = (d11*d20 - d01*d21)/result;
+	vec_result.y = (d00*d21 - d01*d20)/result;
+	vec_result.z = 1.0 - vec_result.x - vec_result.y;
+	return vec_result;
+}
+
 /*=============END UTILITY FUNCTION=========*/
 
 void calculateRaySphereIntersection(Ray &ray, int num) {
@@ -303,10 +336,10 @@ void calculateShadowRay(Ray &ray) {
 			Ray shadowRay = Ray(ray.closestObject.intersection, lightVec);
 			if(ray.closestObject.objectType == "SPHERE") {
 				calculateRaySphereIntersection(shadowRay, ray.closestObject.objectNum);
-				//calculateRayTriangleIntersection(shadowRay, -1);
+				calculateRayTriangleIntersection(shadowRay, -1);
 			} else {
 				calculateRaySphereIntersection(shadowRay, -1);
-				//calculateRayTriangleIntersection(shadowRay, ray.closestObject.objectNum);
+				calculateRayTriangleIntersection(shadowRay, ray.closestObject.objectNum);
 			}
 			
 			//if there is no intersection, calculate color using Phong Illumination model with respect to that light
@@ -324,41 +357,42 @@ void calculateShadowRay(Ray &ray) {
 				if(ray.closestObject.objectType== "SPHERE") {
 					Sphere s = spheres[ray.closestObject.objectNum];
 					n = s.calculateUnitNormal(ray.closestObject.intersection);
-					double ln = dot(l, n);
-					if(ln < 0) ln = 0;
-
-					r = 2*(ln)*n - l;
-					double rv = dot(r,v);
-					if(rv < 0) rv = 0;
-
-					/*cout << "v "; printVector(v);
-					cout << "l "; printVector(l);
-					cout << "n "; printVector(n);
-					cout << "r "; printVector(r); 
-					cout << "ln " << ln << endl;
-					cout << "rv " << rv << endl;*/ 
-
-					//cout << endl; 
-
 
 					kd = dvec3(s.color_diffuse[0], s.color_diffuse[1], s.color_diffuse[2]);
 					ks = dvec3(s.color_specular[0], s.color_specular[1], s.color_specular[2]);
 					alpha = s.shininess;
 
-					//kd(l*n) + ks(r*v)^a
-					double red = L.x*(kd.x*(ln) + ks.x*pow(rv, alpha))*255;
-					double green = L.y*(kd.y*(ln) + ks.y*pow(rv, alpha))*255;
-					double blue = L.z*(kd.z*(ln) + ks.z*pow(rv, alpha))*255;
-
-					ray.color.x += red;
-					ray.color.y += green;
-					ray.color.z += blue;
 				}
 
 				//Calculate lighting for triangles
 				else if(ray.closestObject.objectType == "TRIANGLE") {
-
+					Triangle t = triangles[ray.closestObject.objectNum];
+					Vertex a = t.v[0], b = t.v[1], c = t.v[2];
+					dvec3 bary = calcBarycentric(ray.closestObject.intersection, toVec3(a.position), toVec3(b.position), toVec3(c.position));
+					n = normalize(toVec3(a.normal)*bary.x + toVec3(b.normal)*bary.y + toVec3(c.normal)*bary.z);
+					
+					kd = toVec3(a.color_diffuse)*bary.x + toVec3(b.color_diffuse)*bary.y + toVec3(c.color_diffuse)*bary.z;
+					ks = toVec3(a.color_specular)*bary.x + toVec3(b.color_specular)*bary.y + toVec3(c.color_specular)*bary.z;
+					alpha = a.shininess*bary.x + b.shininess*bary.y + c.shininess*bary.z;
 				}
+				
+				double ln = dot(l, n);
+				if(ln < 0) ln = 0;
+
+				r = 2*(ln)*n - l;
+				double rv = dot(r,v);
+				if(rv < 0) rv = 0;
+
+
+				//kd(l*n) + ks(r*v)^a
+				double red = L.x*(kd.x*(ln) + ks.x*pow(rv, alpha))*255;
+				double green = L.y*(kd.y*(ln) + ks.y*pow(rv, alpha))*255;
+				double blue = L.z*(kd.z*(ln) + ks.z*pow(rv, alpha))*255;
+
+				ray.color.x += red;
+				ray.color.y += green;
+				ray.color.z += blue;
+
 			} 
 		}
 	}
