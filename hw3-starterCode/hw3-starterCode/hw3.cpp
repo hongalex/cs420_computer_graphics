@@ -52,6 +52,7 @@ const float ASPECT = (float)WIDTH/HEIGHT;
 #define fov 60.0
 
 using namespace std;
+using namespace glm;
 
 unsigned char buffer[HEIGHT][WIDTH][3];
 
@@ -85,9 +86,10 @@ struct Light
 };
 
 struct Object {
+	Object() { objectNum=-1; };
 	string objectType;
 	int objectNum;
-	int t_value;
+	float tvalue;
 	glm::dvec3 intersection;
 };
 
@@ -102,6 +104,9 @@ struct Ray {
 		direction.x = dx;
 		direction.y = dy;
 		direction.z = dz;
+		cout << direction.x << endl;
+		direction = glm::normalize(direction);
+		cout << direction.y << endl;
 	};
 	Object closestObject;
 };
@@ -117,13 +122,17 @@ int num_spheres = 0;
 int num_lights = 0;
 
 //The amount to increment the pixels X and Y values for the rays
-float x_increment, y_increment;
+float deltaX, deltaY;
 
 void plot_pixel_display(int x,int y,unsigned char r,unsigned char g,unsigned char b);
 void plot_pixel_jpeg(int x,int y,unsigned char r,unsigned char g,unsigned char b);
 void plot_pixel(int x,int y,unsigned char r,unsigned char g,unsigned char b);
 
 /*==============UTILITY FUNCTIONS============*/
+
+double square (float num) {
+	return num*num;
+}
 
 //
 /**
@@ -154,7 +163,36 @@ double quadraticMinimum(double a, double b, double c) {
 			return -1;
 		}
 	}
+}
 
+/*=============END UTILITY FUNCTION=========*/
+
+void calculateRaySphereIntersection(Ray ray) {
+	for(int i=0; i< num_spheres; i++) {
+		double radius = spheres[i].radius;
+		double xc = spheres[i].position[0];
+		double yc = spheres[i].position[1];
+		double zc = spheres[i].position[2];
+
+		double xd = ray.direction.x;
+		double yd = ray.direction.y;
+		double zd = ray.direction.z;
+
+		double b = 2*(xd * -xc + yd * -yc + zd * -zc);
+		double c = square(xc) + square(yc) + square(zc) - square(radius);
+		double result = quadraticMinimum(1, b, c);
+		if(result > 0) {
+			if(ray.closestObject.objectNum == -1 || ray.closestObject.tvalue > result) {
+				Object newObject;
+				newObject.objectType = "SPHERE";
+				newObject.objectNum = i;
+				newObject.tvalue = result;
+				newObject.intersection = result*ray.direction;
+				ray.closestObject = newObject;
+			} 
+		}
+
+	}
 
 }
 
@@ -162,17 +200,20 @@ double quadraticMinimum(double a, double b, double c) {
 void draw_scene()
 {
 	//a simple test output
+	glPointSize(2.0);	
+	glBegin(GL_POINTS);
+
 	for(unsigned int x=0; x<WIDTH; x++)
 	{
-		glPointSize(2.0);	
-		glBegin(GL_POINTS);
 		for(unsigned int y=0; y<HEIGHT; y++)
 		{
+			calculateRaySphereIntersection(rays[x][y]);
 			plot_pixel(x, y, x % 256, y % 256, (x+y) % 256);
 		}
-		glEnd();
-		glFlush();
 	}
+	glEnd();
+	glFlush();
+
 	printf("Done!\n"); fflush(stdout);
 }
 
@@ -335,9 +376,9 @@ void init()
 	glClear(GL_COLOR_BUFFER_BIT);
 
 	//Draw Rays
-	rays = new Ray*[HEIGHT];
-	for(int i=0; i< HEIGHT; i++) {
-		rays[i] = new Ray[WIDTH];
+	rays = new Ray*[WIDTH];
+	for(int i=0; i< WIDTH; i++) {
+		rays[i] = new Ray[HEIGHT];
 	}
 
 	//define the four corners
@@ -350,25 +391,25 @@ void init()
 	cout << x_max << endl;
 	cout << y_max << endl;
 
-	rays[0][0] = 				Ray(0, 0 ,0, x_min, y_max, -1);
-	rays[0][WIDTH-1] = 			Ray(0, 0 ,0, x_max, y_max, -1);
-	rays[HEIGHT-1][0] = 		Ray(0, 0 ,0, x_min, y_min, -1);
-	rays[HEIGHT-1][WIDTH-1] = 	Ray(0, 0 ,0, x_max, y_min, -1);
+	rays[0][0] = 				Ray(0, 0 ,0, x_min, y_min, -1);
+	rays[WIDTH-1][0] = 			Ray(0, 0 ,0, x_max, y_min, -1);
+	rays[0][HEIGHT-1] = 		Ray(0, 0 ,0, x_min, y_max, -1);
+	rays[WIDTH-1][HEIGHT-1] = 	Ray(0, 0 ,0, x_max, y_max, -1);
 
 	//set up increment values
-	x_increment = (x_max - x_min)/WIDTH;
-	y_increment = (y_max - y_min)/HEIGHT;
+	deltaX = (x_max - x_min)/WIDTH;
+	deltaY = (y_max - y_min)/HEIGHT;
 
 	float x_count = x_min;
-	float y_count = y_max;
+	float y_count = y_min;
 	//create the remaining rays
-	for(int i=1; i < HEIGHT-1; i++) {
-		for(int j=1; j < WIDTH-1; j++) {
+	for(int i=0; i < WIDTH; i++) {
+		for(int j=0; j < HEIGHT; j++) {
 			rays[i][j] = Ray(0, 0, 0, x_count, y_count, -1);
-			x_count += x_increment;
+			x_count += deltaX;
 		}
 		x_count = x_min;
-		y_count -= y_increment;
+		y_count += deltaY;
 	}
 
 
@@ -412,12 +453,6 @@ int main(int argc, char ** argv)
 	glutDisplayFunc(display);
 	glutIdleFunc(idle);
 	init();
-	/*for(int i=0; i<HEIGHT; i++) {
-		for(int j=0; j< WIDTH; j++) {
-			cout << rays[i][j].direction[0] << ',' << rays[i][j].direction[1] << ' ';
-		}
-		cout << endl;
-	}*/
 
 	glutMainLoop();
 }
