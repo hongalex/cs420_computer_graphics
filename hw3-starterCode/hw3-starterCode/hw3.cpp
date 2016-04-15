@@ -20,10 +20,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include <glm/glm.hpp>
 #include <cmath>
 #include <iostream>
-#include <String>
 #ifdef WIN32
 	#define strcasecmp _stricmp
 #endif
@@ -47,7 +47,7 @@ int mode = MODE_DISPLAY;
 //you may want to make these smaller for debugging purposes
 #define WIDTH 640
 #define HEIGHT 480
-const float ASPECT = (float)WIDTH/HEIGHT;
+const double ASPECT = (double)WIDTH/HEIGHT;
 //the field of view of the camera
 #define fov 60.0
 
@@ -77,6 +77,11 @@ struct Sphere
 	double color_specular[3];
 	double shininess;
 	double radius;
+
+	dvec3 calculateUnitNormal(dvec3 point) {
+		dvec3 center = dvec3(position[0], position[1], position[2]);
+		return normalize(point - center); 
+	}
 };
 
 struct Light
@@ -89,14 +94,20 @@ struct Object {
 	Object() { objectNum=-1; };
 	string objectType;
 	int objectNum;
-	float tvalue;
+	double tvalue;
 	glm::dvec3 intersection;
 };
 
 struct Ray {
+
 	glm::dvec3 origin;
 	glm::dvec3 direction;
-	Ray() {};
+
+	Object closestObject;
+	glm::dvec3 color;
+
+	Ray() {}; //default constructor
+	//pass in points individually
 	Ray(double ox, double oy, double oz, double dx, double dy, double dz) {
 		origin.x = ox;
 		origin.y = oy;
@@ -104,11 +115,20 @@ struct Ray {
 		direction.x = dx;
 		direction.y = dy;
 		direction.z = dz;
-		cout << direction.x << endl;
-		direction = glm::normalize(direction);
-		cout << direction.y << endl;
+		direction = glm::normalize(direction);	
+		color.x = 0;
+		color.y = 0;
+		color.z = 0;
 	};
-	Object closestObject;
+	//pass in points by vec3's
+	Ray(dvec3 origin, dvec3 direction) {
+		this->origin = origin;
+		this->direction = direction;
+		direction = glm::normalize(direction);	
+		color.x = 255;
+		color.y = 255;
+		color.z = 255;
+	}
 };
 
 Triangle triangles[MAX_TRIANGLES];
@@ -122,7 +142,8 @@ int num_spheres = 0;
 int num_lights = 0;
 
 //The amount to increment the pixels X and Y values for the rays
-float deltaX, deltaY;
+double deltaX, deltaY;
+int shadowsCount = 0, outerloop = 0, elseloop = 0;
 
 void plot_pixel_display(int x,int y,unsigned char r,unsigned char g,unsigned char b);
 void plot_pixel_jpeg(int x,int y,unsigned char r,unsigned char g,unsigned char b);
@@ -130,7 +151,7 @@ void plot_pixel(int x,int y,unsigned char r,unsigned char g,unsigned char b);
 
 /*==============UTILITY FUNCTIONS============*/
 
-double square (float num) {
+double square (double num) {
 	return num*num;
 }
 
@@ -165,34 +186,127 @@ double quadraticMinimum(double a, double b, double c) {
 	}
 }
 
+void printVector(vec3 vec) {
+	cout << vec.x << " , " << vec.y << " , " << vec.z << endl;
+}
+
+//taken from GLM website
+double clamp(double x, double minVal, double maxVal) {
+	return std::min(std::max(x, minVal), maxVal);
+}
+
 /*=============END UTILITY FUNCTION=========*/
 
-void calculateRaySphereIntersection(Ray ray) {
+void calculateRaySphereIntersection(Ray &ray, int num) {
 	for(int i=0; i< num_spheres; i++) {
-		double radius = spheres[i].radius;
-		double xc = spheres[i].position[0];
-		double yc = spheres[i].position[1];
-		double zc = spheres[i].position[2];
+		if(i!=num) {
+			double radius = spheres[i].radius;
+			double xc = spheres[i].position[0];
+			double yc = spheres[i].position[1];
+			double zc = spheres[i].position[2];
 
-		double xd = ray.direction.x;
-		double yd = ray.direction.y;
-		double zd = ray.direction.z;
+			double xd = ray.direction.x;
+			double yd = ray.direction.y;
+			double zd = ray.direction.z;
 
-		double b = 2*(xd * -xc + yd * -yc + zd * -zc);
-		double c = square(xc) + square(yc) + square(zc) - square(radius);
-		double result = quadraticMinimum(1, b, c);
-		if(result > 0) {
-			if(ray.closestObject.objectNum == -1 || ray.closestObject.tvalue > result) {
-				Object newObject;
-				newObject.objectType = "SPHERE";
-				newObject.objectNum = i;
-				newObject.tvalue = result;
-				newObject.intersection = result*ray.direction;
-				ray.closestObject = newObject;
-			} 
+			double x0 = ray.origin.x;
+			double y0 = ray.origin.y;
+			double z0 = ray.origin.z;
+
+			double b = 2*(xd *(x0-xc) + yd *(y0-yc) + zd *(z0 -zc));
+			double c = square(x0-xc) + square(y0-yc) + square(z0-zc) - square(radius);
+			double result = quadraticMinimum(1, b, c);
+			if(result > 0) {
+				if(ray.closestObject.objectNum == -1 || ray.closestObject.tvalue > result) {
+					Object newObject;
+					newObject.objectType = "SPHERE";
+					newObject.objectNum = i;
+					newObject.tvalue = result;
+					newObject.intersection = ray.origin + result*ray.direction;
+					ray.closestObject = newObject;
+				} 
+			}
+		} else {
+			cout << "ignored a sphere" << endl;
 		}
 
 	}
+}
+
+/**
+ * Fire a shadow ray, and then calculate the color using Phong illumination model if there is no intersection
+ * If the shadow ray is obstructed, then return black
+ *
+ *
+ *
+ */
+void calculateShadowRay(Ray &ray) {
+	//Fire a shadow ray first for each light source
+	for(int i=0; i<num_lights; i++) {
+		Light light = lights[i];
+
+		//If the ray actually intersected with something, fire the shadow ray
+		if(ray.closestObject.objectNum != -1) {
+			dvec3 lightVec = dvec3(light.position[0], light.position[1], light.position[2]);
+			lightVec -= ray.closestObject.intersection;
+			lightVec = normalize(lightVec);
+			Ray shadowRay = Ray(ray.closestObject.intersection, lightVec);
+			calculateRaySphereIntersection(shadowRay, ray.closestObject.objectNum);
+			
+			//if there is no intersection, calculate color using Phong Illumination model with respect to that light
+			if(shadowRay.closestObject.objectNum == -1) {
+			//if(true) {
+				dvec3 kd, ks;
+				double alpha; //diffuse, specular, and alpha (shininess)
+
+				dvec3 l, n, r, v, L; //Light vector, normal vector, reflect vector, vector to image plane, Light color
+				L = dvec3(light.color[0], light.color[1], light.color[2]);
+				v = -ray.direction;
+				l = normalize(shadowRay.direction);
+
+				//Calculate lighting for Spheres
+				if(ray.closestObject.objectType== "SPHERE") {
+					Sphere s = spheres[ray.closestObject.objectNum];
+					n = s.calculateUnitNormal(ray.closestObject.intersection);
+					double ln = dot(l, n);
+					if(ln < 0) ln = 0;
+
+					r = 2*(ln)*n - l;
+					double rv = dot(r,v);
+					if(rv < 0) rv = 0;
+
+					/*cout << "v "; printVector(v);
+					cout << "l "; printVector(l);
+					cout << "n "; printVector(n);
+					cout << "r "; printVector(r); 
+					cout << "ln " << ln << endl;
+					cout << "rv " << rv << endl;*/ 
+
+					//cout << endl; 
+
+
+					kd = dvec3(s.color_diffuse[0], s.color_diffuse[1], s.color_diffuse[2]);
+					ks = dvec3(s.color_specular[0], s.color_specular[1], s.color_specular[2]);
+					alpha = s.shininess;
+
+					//kd(l*n) + ks(r*v)^a
+					double red = L.x*(kd.x*(ln) + ks.x*pow(rv, alpha))*255;
+					double green = L.y*(kd.y*(ln) + ks.y*pow(rv, alpha))*255;
+					double blue = L.z*(kd.z*(ln) + ks.z*pow(rv, alpha))*255;
+
+					ray.color.x += red;
+					ray.color.y += green;
+					ray.color.z += blue;
+				}
+
+				//Calculate lighting for triangles
+				else if(ray.closestObject.objectType == "TRIANGLE") {
+
+				}
+			} 
+		}
+	}
+
 
 }
 
@@ -205,10 +319,26 @@ void draw_scene()
 
 	for(unsigned int x=0; x<WIDTH; x++)
 	{
+
 		for(unsigned int y=0; y<HEIGHT; y++)
 		{
-			calculateRaySphereIntersection(rays[x][y]);
-			plot_pixel(x, y, x % 256, y % 256, (x+y) % 256);
+			calculateRaySphereIntersection(rays[x][y], -1);
+			//calculateRayTriangleIntersection(rays[x][y]);
+			calculateShadowRay(rays[x][y]);
+
+			//if you can't find the intersection, plot a white color
+			if(rays[x][y].closestObject.objectNum == -1) {
+				plot_pixel(x, y, 255, 255, 255);
+			}
+
+			//plot the actual color of the ray intersection
+			else {
+				double red = clamp(rays[x][y].color.x + 255*ambient_light[0], 0, 255);
+				double green = clamp(rays[x][y].color.y + 255*ambient_light[1], 0, 255);
+				double blue = clamp(rays[x][y].color.z + 255*ambient_light[2], 0, 255);
+
+				plot_pixel(x, y, red, green, blue);
+			}
 		}
 	}
 	glEnd();
@@ -382,14 +512,11 @@ void init()
 	}
 
 	//define the four corners
-	float tangentValue = tan(fov*PI/180.0/2);
-	float x_max = ASPECT*tangentValue;
-	float x_min = -1*ASPECT*tangentValue;
-	float y_max = tangentValue;
-	float y_min = -1*tangentValue;
-
-	cout << x_max << endl;
-	cout << y_max << endl;
+	double tangentValue = tan(fov*PI/180.0/2);
+	double x_max = ASPECT*tangentValue;
+	double x_min = -1*ASPECT*tangentValue;
+	double y_max = tangentValue;
+	double y_min = -1*tangentValue;
 
 	rays[0][0] = 				Ray(0, 0 ,0, x_min, y_min, -1);
 	rays[WIDTH-1][0] = 			Ray(0, 0 ,0, x_max, y_min, -1);
@@ -400,19 +527,17 @@ void init()
 	deltaX = (x_max - x_min)/WIDTH;
 	deltaY = (y_max - y_min)/HEIGHT;
 
-	float x_count = x_min;
-	float y_count = y_min;
+	double x_count = x_min;
+	double y_count = y_min;
 	//create the remaining rays
 	for(int i=0; i < WIDTH; i++) {
 		for(int j=0; j < HEIGHT; j++) {
-			rays[i][j] = Ray(0, 0, 0, x_count, y_count, -1);
-			x_count += deltaX;
+			rays[i][j] = Ray(0, 0, 0, x_min + i*deltaX, y_min + j*deltaY, -1);
+			y_count += deltaY;
 		}
-		x_count = x_min;
-		y_count += deltaY;
+		y_count = y_min;
+		x_count += deltaX;
 	}
-
-
 }
 
 void idle()
