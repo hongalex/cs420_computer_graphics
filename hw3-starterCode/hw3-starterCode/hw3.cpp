@@ -125,9 +125,9 @@ struct Ray {
 		this->origin = origin;
 		this->direction = direction;
 		direction = glm::normalize(direction);	
-		color.x = 255;
-		color.y = 255;
-		color.z = 255;
+		color.x = 50;
+		color.y = 50;
+		color.z = 50;
 	}
 };
 
@@ -226,10 +226,60 @@ void calculateRaySphereIntersection(Ray &ray, int num) {
 					ray.closestObject = newObject;
 				} 
 			}
-		} else {
-			cout << "ignored a sphere" << endl;
-		}
+		} 
+	}
+}
 
+void calculateRayTriangleIntersection(Ray &ray, int num) {
+	for(int i=0; i< num_triangles; i++) {
+		if(i!=num) {
+			Triangle triangle = triangles[i];
+			dvec3 pointA = vec3(triangle.v[0].position[0], triangle.v[0].position[1], triangle.v[0].position[2]); 
+			dvec3 pointB = vec3(triangle.v[1].position[0], triangle.v[1].position[1], triangle.v[1].position[2]); 
+			dvec3 pointC = vec3(triangle.v[2].position[0], triangle.v[2].position[1], triangle.v[2].position[2]); 
+
+			dvec3 n = cross((pointB - pointA), (pointC-pointA));
+			n = normalize(n);
+			if(dot(n,ray.direction)!=0) {
+
+				double t = dot(n,pointA - ray.origin)/(dot(n,ray.direction));
+
+
+				if(t > 0) {
+					if(ray.closestObject.objectNum == -1 || ray.closestObject.tvalue > t) {
+						//Check if the intersection point is inside the triangle. 
+						//Pseudocode borrowed from http://www.blackpawn.com/texts/pointinpoly/
+						// Compute vectors        
+						dvec3 v0 = pointC - pointA;
+						dvec3 v1 = pointB - pointA;
+						dvec3 v2 = ray.origin + t*ray.direction - pointA;
+
+						// Compute dot products
+						double dot00 = dot(v0, v0);
+						double dot01 = dot(v0, v1);
+						double dot02 = dot(v0, v2);
+						double dot11 = dot(v1, v1);
+						double dot12 = dot(v1, v2);
+
+						// Compute barycentric coordinates
+						double invDenom = 1 / (dot00 * dot11 - dot01 * dot01);
+						double u = (dot11 * dot02 - dot01 * dot12) * invDenom;
+						double v = (dot00 * dot12 - dot01 * dot02) * invDenom;
+
+						// Check if point is in triangle
+						if((u >= 0) && (v >= 0) && (u + v < 1)) {
+
+							Object newObject;
+							newObject.objectType = "TRIANGLE";
+							newObject.objectNum = i;
+							newObject.tvalue = t;
+							newObject.intersection = ray.origin + t*ray.direction;
+							ray.closestObject = newObject;
+						} 
+					}
+				}
+			}
+		} 
 	}
 }
 
@@ -251,7 +301,13 @@ void calculateShadowRay(Ray &ray) {
 			lightVec -= ray.closestObject.intersection;
 			lightVec = normalize(lightVec);
 			Ray shadowRay = Ray(ray.closestObject.intersection, lightVec);
-			calculateRaySphereIntersection(shadowRay, ray.closestObject.objectNum);
+			if(ray.closestObject.objectType == "SPHERE") {
+				calculateRaySphereIntersection(shadowRay, ray.closestObject.objectNum);
+				//calculateRayTriangleIntersection(shadowRay, -1);
+			} else {
+				calculateRaySphereIntersection(shadowRay, -1);
+				//calculateRayTriangleIntersection(shadowRay, ray.closestObject.objectNum);
+			}
 			
 			//if there is no intersection, calculate color using Phong Illumination model with respect to that light
 			if(shadowRay.closestObject.objectNum == -1) {
@@ -322,8 +378,8 @@ void draw_scene()
 
 		for(unsigned int y=0; y<HEIGHT; y++)
 		{
+			calculateRayTriangleIntersection(rays[x][y], -1);
 			calculateRaySphereIntersection(rays[x][y], -1);
-			//calculateRayTriangleIntersection(rays[x][y]);
 			calculateShadowRay(rays[x][y]);
 
 			//if you can't find the intersection, plot a white color
