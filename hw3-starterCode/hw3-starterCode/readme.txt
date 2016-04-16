@@ -25,3 +25,6 @@ Feature:                                 Status: finish? (yes/no)
    
 7) Extra Credit (up to 20 points)
    !!! explain your extra credit here, if applicable !!!
+
+Scene Description
+No extra features implemented, so all scenes provided should work. 
