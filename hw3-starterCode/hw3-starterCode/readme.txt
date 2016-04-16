@@ -11,17 +11,17 @@ functioning correctly.  If not, please explain the current status.>
 
 Feature:                                 Status: finish? (yes/no)
 -------------------------------------    -------------------------
-1) Ray tracing triangles                  !!!no, explain!!!
+1) Ray tracing triangles                  Yes
 
-2) Ray tracing sphere                     !!!no, explain!!!
+2) Ray tracing sphere                     Yes
 
-3) Triangle Phong Shading                 !!!no, explain!!!
+3) Triangle Phong Shading                 Yes
 
-4) Sphere Phong Shading                   !!!no, explain!!!
+4) Sphere Phong Shading                   Yes
 
-5) Shadows rays                           !!!no, explain!!!
+5) Shadows rays                           Yes
 
-6) Still images                           !!!no, explain!!!
+6) Still images                           Yes
    
 7) Extra Credit (up to 20 points)
    !!! explain your extra credit here, if applicable !!!

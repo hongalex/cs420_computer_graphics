@@ -46,7 +46,7 @@ int mode = MODE_DISPLAY;
 
 //you may want to make these smaller for debugging purposes
 #define WIDTH 640
-#define HEIGHT 480
+#define HEIGHT 400
 const double ASPECT = (double)WIDTH/HEIGHT;
 //the field of view of the camera
 #define fov 60.0
@@ -204,6 +204,10 @@ dvec3 toVec3(double* array) {
 	return result;
 }
 
+double distanceSquared(dvec3 start, dvec3 end) {
+	return square(start.x - end.x) + square(start.y - end.y) + square(start.z - end.z);
+}
+
 /**
  * Calculate barycentric coordinates using a point inside a triangle, and the vertices of a triangle (a, b, and c)
  *
@@ -222,9 +226,9 @@ dvec3 calcBarycentric(dvec3 point, dvec3 a, dvec3 b, dvec3 c) {
 
 	double result = d00*d11 - d01 *d01;
 	dvec3 vec_result;
-	vec_result.x = (d11*d20 - d01*d21)/result;
-	vec_result.y = (d00*d21 - d01*d20)/result;
-	vec_result.z = 1.0 - vec_result.x - vec_result.y;
+	vec_result.y = (d11*d20 - d01*d21)/result;
+	vec_result.z = (d00*d21 - d01*d20)/result;
+	vec_result.x = 1.0 - vec_result.z - vec_result.y;
 	return vec_result;
 }
 
@@ -267,9 +271,9 @@ void calculateRayTriangleIntersection(Ray &ray, int num) {
 	for(int i=0; i< num_triangles; i++) {
 		if(i!=num) {
 			Triangle triangle = triangles[i];
-			dvec3 pointA = vec3(triangle.v[0].position[0], triangle.v[0].position[1], triangle.v[0].position[2]); 
-			dvec3 pointB = vec3(triangle.v[1].position[0], triangle.v[1].position[1], triangle.v[1].position[2]); 
-			dvec3 pointC = vec3(triangle.v[2].position[0], triangle.v[2].position[1], triangle.v[2].position[2]); 
+			dvec3 pointA = dvec3(triangle.v[0].position[0], triangle.v[0].position[1], triangle.v[0].position[2]); 
+			dvec3 pointB = dvec3(triangle.v[1].position[0], triangle.v[1].position[1], triangle.v[1].position[2]); 
+			dvec3 pointC = dvec3(triangle.v[2].position[0], triangle.v[2].position[1], triangle.v[2].position[2]); 
 
 			dvec3 n = cross((pointB - pointA), (pointC-pointA));
 			n = normalize(n);
@@ -277,11 +281,10 @@ void calculateRayTriangleIntersection(Ray &ray, int num) {
 
 				double t = dot(n,pointA - ray.origin)/(dot(n,ray.direction));
 
-
 				if(t > 0) {
 					if(ray.closestObject.objectNum == -1 || ray.closestObject.tvalue > t) {
-						//Check if the intersection point is inside the triangle. 
-						//Pseudocode borrowed from http://www.blackpawn.com/texts/pointinpoly/
+						// Check if the intersection point is inside the triangle. 
+						// Implemented concept from http://www.blackpawn.com/texts/pointinpoly/
 						// Compute vectors        
 						dvec3 v0 = pointC - pointA;
 						dvec3 v1 = pointB - pointA;
@@ -295,9 +298,9 @@ void calculateRayTriangleIntersection(Ray &ray, int num) {
 						double dot12 = dot(v1, v2);
 
 						// Compute barycentric coordinates
-						double invDenom = 1 / (dot00 * dot11 - dot01 * dot01);
-						double u = (dot11 * dot02 - dot01 * dot12) * invDenom;
-						double v = (dot00 * dot12 - dot01 * dot02) * invDenom;
+						double denom = (dot00 * dot11 - dot01 * dot01);
+						double u = (dot11 * dot02 - dot01 * dot12) / denom;
+						double v = (dot00 * dot12 - dot01 * dot02) / denom;
 
 						// Check if point is in triangle
 						if((u >= 0) && (v >= 0) && (u + v < 1)) {
@@ -334,22 +337,32 @@ void calculateShadowRay(Ray &ray) {
 			lightVec -= ray.closestObject.intersection;
 			lightVec = normalize(lightVec);
 			Ray shadowRay = Ray(ray.closestObject.intersection, lightVec);
+
 			if(ray.closestObject.objectType == "SPHERE") {
 				calculateRaySphereIntersection(shadowRay, ray.closestObject.objectNum);
 				calculateRayTriangleIntersection(shadowRay, -1);
 			} else {
-				calculateRaySphereIntersection(shadowRay, -1);
 				calculateRayTriangleIntersection(shadowRay, ray.closestObject.objectNum);
+				calculateRaySphereIntersection(shadowRay, -1);
+			}
+			//Check if shadow ray intersection, if it exists, is behind the light or not
+			if(shadowRay.closestObject.objectNum != -1) {
+
+				double distanceFromPointToIntersection = distanceSquared(ray.closestObject.intersection, shadowRay.closestObject.intersection);
+				double distanceFromPointToLight = distanceSquared(ray.closestObject.intersection, lightVec);
+				//if the point that the shadow ray intersects with is further than the light, don't consider it blocked
+				if(distanceFromPointToIntersection > distanceFromPointToLight) {
+					shadowRay.closestObject.objectNum = -1;
+				}
 			}
 			
 			//if there is no intersection, calculate color using Phong Illumination model with respect to that light
 			if(shadowRay.closestObject.objectNum == -1) {
-			//if(true) {
 				dvec3 kd, ks;
 				double alpha; //diffuse, specular, and alpha (shininess)
 
 				dvec3 l, n, r, v, L; //Light vector, normal vector, reflect vector, vector to image plane, Light color
-				L = dvec3(light.color[0], light.color[1], light.color[2]);
+				L = toVec3(light.color);
 				v = -ray.direction;
 				l = normalize(shadowRay.direction);
 
