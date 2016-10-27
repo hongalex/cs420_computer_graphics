@@ -46,7 +46,7 @@ int mode = MODE_DISPLAY;
 
 //you may want to make these smaller for debugging purposes
 #define WIDTH 640
-#define HEIGHT 400
+#define HEIGHT 480
 const double ASPECT = (double)WIDTH/HEIGHT;
 //the field of view of the camera
 #define fov 60.0
@@ -226,9 +226,9 @@ dvec3 calcBarycentric(dvec3 point, dvec3 a, dvec3 b, dvec3 c) {
 
 	double result = d00*d11 - d01 *d01;
 	dvec3 vec_result;
-	vec_result.y = (d11*d20 - d01*d21)/result;
-	vec_result.z = (d00*d21 - d01*d20)/result;
-	vec_result.x = 1.0 - vec_result.z - vec_result.y;
+	vec_result.y = (d11*d20 - d01*d21)/result; //alpha
+	vec_result.z = (d00*d21 - d01*d20)/result; //beta
+	vec_result.x = 1.0 - vec_result.z - vec_result.y; //gamma
 	return vec_result;
 }
 
@@ -349,7 +349,7 @@ void calculateShadowRay(Ray &ray) {
 			if(shadowRay.closestObject.objectNum != -1) {
 
 				double distanceFromPointToIntersection = distanceSquared(ray.closestObject.intersection, shadowRay.closestObject.intersection);
-				double distanceFromPointToLight = distanceSquared(ray.closestObject.intersection, lightVec);
+				double distanceFromPointToLight = distanceSquared(ray.closestObject.intersection, dvec3(light.position[0], light.position[1], light.position[2]));
 				//if the point that the shadow ray intersects with is further than the light, don't consider it blocked
 				if(distanceFromPointToIntersection > distanceFromPointToLight) {
 					shadowRay.closestObject.objectNum = -1;
